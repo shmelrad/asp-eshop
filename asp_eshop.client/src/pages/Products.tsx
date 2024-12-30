@@ -13,6 +13,7 @@ import { Category } from "@/types/category"
 import { useAuthStore } from "@/stores/authStore"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Heart } from "lucide-react"
+import { Link } from "react-router-dom"
 
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([])
@@ -66,13 +67,13 @@ export default function Products() {
 
   useEffect(() => {
     const fetchFavoriteIds = async () => {
-        if (!token) return
-        try {
-            const ids = await productsApi.getFavoriteIds()
-            setFavoriteIds(ids)
-        } catch (error) {
-            console.error('Failed to fetch favorite ids:', error)
-        }
+      if (!token) return
+      try {
+        const ids = await productsApi.getFavoriteIds()
+        setFavoriteIds(ids)
+      } catch (error) {
+        console.error('Failed to fetch favorite ids:', error)
+      }
     }
     fetchFavoriteIds()
   }, [token])
@@ -85,8 +86,8 @@ export default function Products() {
 
     try {
       const { isFavorite } = await productsApi.toggleFavorite(productId)
-      setFavoriteIds(prev => 
-        isFavorite 
+      setFavoriteIds(prev =>
+        isFavorite
           ? [...prev, productId]
           : prev.filter(id => id !== productId)
       )
@@ -152,11 +153,13 @@ export default function Products() {
                 <Card key={product.id}>
                   <CardContent className="p-4">
                     <div className="relative">
-                      <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        className="w-full h-48 object-cover rounded-lg mb-4"
-                      />
+                      <Link to={`/products/${product.id}`}>
+                        <img
+                          src={product.imageUrl}
+                          alt={product.name}
+                          className="w-full h-48 object-cover rounded-lg mb-4"
+                        />
+                      </Link>
                       <button
                         onClick={() => toggleFavorite(product.id)}
                         className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-md"

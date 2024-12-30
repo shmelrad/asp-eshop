@@ -5,6 +5,7 @@ import LoginPage from '@/pages/LoginPage';
 import ManageProducts from '@/pages/admin/ManageProducts';
 import ProtectedRoute from '@/components/protectedRoute';
 import { Toaster } from 'sonner';
+import ProductDetails from './pages/ProductDetails';
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
       <main className="container mx-auto px-4">
         <Routes>
           <Route index element={<Products />} />
+          <Route path="/products/:id" element={<ProductDetails />} />
           <Route path="/login" element={<LoginPage />} />
           <Route
             path="/admin/products"
