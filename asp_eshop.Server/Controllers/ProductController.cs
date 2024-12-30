@@ -38,6 +38,11 @@ public class ProductController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<Product>> CreateProduct(Product product)
     {
+        if (product.Price <= 0)
+        {
+            return BadRequest("Product price must be greater than zero.");
+        }
+
         _context.Products.Add(product);
         await _context.SaveChangesAsync();
 
@@ -92,4 +97,4 @@ public class ProductController : ControllerBase
     {
         return _context.Products.Any(e => e.Id == id);
     }
-} 
+}
