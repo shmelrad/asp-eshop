@@ -22,8 +22,7 @@ public class ProductController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 9,
         [FromQuery] string search = "",
-        [FromQuery] string categoryId = "",
-        [FromQuery] bool favoritesOnly = false)
+        [FromQuery] string categoryId = "")
     {
         if (!string.IsNullOrEmpty(search) && search.Length < 3)
         {
@@ -33,27 +32,6 @@ public class ProductController : ControllerBase
         var query = _context.Products
             .Include(p => p.Category)
             .AsQueryable();
-
-        if (favoritesOnly)
-        {
-            var userId = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized();
-            }
-
-            var userIdInt = int.Parse(userId);
-            var user = await _context.Users
-                .Include(u => u.FavoriteProducts)
-                .FirstOrDefaultAsync(u => u.Id == userIdInt);
-
-            if (user == null)
-            {
-                return NotFound("User not found");
-            }
-
-            query = query.Where(p => user.FavoriteProducts.Any(fp => fp.Id == p.Id));
-        }
 
         if (!string.IsNullOrEmpty(search))
         {
