@@ -44,6 +44,7 @@ export default function ProductTable({ products, onEdit, onDelete, categories, o
         <TableRow>
           <TableHead>Image</TableHead>
           <TableHead>Name</TableHead>
+          <TableHead>Category</TableHead>
           <TableHead>Description</TableHead>
           <TableHead>Price</TableHead>
           <TableHead>Actions</TableHead>
@@ -61,6 +62,7 @@ export default function ProductTable({ products, onEdit, onDelete, categories, o
               </div>
             </TableCell>
             <TableCell>{product.name}</TableCell>
+            <TableCell>{product.category?.name}</TableCell>
             <TableCell>{product.description}</TableCell>
             <TableCell>${product.price.toFixed(2)}</TableCell>
             <TableCell>
