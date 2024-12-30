@@ -5,15 +5,19 @@ import ProductDialog from "./components/ProductDialog"
 import { Product } from "@/types/products"
 import { productsApi } from "@/api/products"
 import { toast } from "sonner"
+import { Pagination } from "@/components/ui/pagination"
 
 export default function ManageProducts() {
   const [products, setProducts] = useState<Product[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const data = await productsApi.getAll()
-        setProducts(data)
+        const data = await productsApi.getAll(currentPage)
+        setProducts(data.items)
+        setTotalPages(data.totalPages)
       } catch (error) {
         toast.error("Failed to fetch products")
         console.error(error)
@@ -21,7 +25,7 @@ export default function ManageProducts() {
     }
 
     fetchProducts()
-  }, [])
+  }, [currentPage])
 
   const handleAddProduct = async (newProduct: Omit<Product, "id">) => {
     try {
@@ -71,6 +75,12 @@ export default function ManageProducts() {
             products={products}
             onEdit={handleEditProduct}
             onDelete={handleDeleteProduct}
+          />
+          <Pagination
+            className="mt-4"
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
           />
         </CardContent>
       </Card>

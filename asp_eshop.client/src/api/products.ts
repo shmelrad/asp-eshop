@@ -3,13 +3,26 @@ import { Product } from '@/types/products'
   
 export type CreateProductDto = Omit<Product, "id">
 
+interface PagedResult<T> {
+  items: T[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
 class ProductsApi extends BaseApi {
   constructor() {
     super('/api/product')
   }
 
-  getAll() {
-    return this.get<Product[]>('')
+  getAll(page = 1, pageSize = 9) {
+    return this.get<PagedResult<Product>>('', { 
+      params: { 
+        page: page.toString(), 
+        pageSize: pageSize.toString() 
+      }
+    })
   }
 
   getById(id: number) {

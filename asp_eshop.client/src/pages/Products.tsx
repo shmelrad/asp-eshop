@@ -3,15 +3,20 @@ import { Card, CardContent } from "@/components/ui/card"
 import { productsApi } from "@/api/products"
 import { Product } from "@/types/products"
 import { toast } from "sonner"
+import { Pagination } from "@/components/ui/pagination"
 
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const data = await productsApi.getAll()
-        setProducts(data)
+        const data = await productsApi.getAll(currentPage)
+        console.log(data)
+        setProducts(data.items)
+        setTotalPages(data.totalPages)
       } catch (error) {
         toast.error("Failed to fetch products")
         console.error(error)
@@ -19,7 +24,7 @@ export default function Products() {
     }
 
     fetchProducts()
-  }, [])
+  }, [currentPage])
 
   return (
     <div className="container mx-auto py-10">
@@ -40,6 +45,12 @@ export default function Products() {
           </Card>
         ))}
       </div>
+      <Pagination
+        className="mt-4"
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+      />
     </div>
   )
 } 
