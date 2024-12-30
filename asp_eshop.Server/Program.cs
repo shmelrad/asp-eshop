@@ -87,13 +87,15 @@ void SeedDatabase(AppDbContext dbContext)
             {
                 Username = "admin",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
-                Role = "Admin"
+                Role = "Admin",
+                FavoriteProducts = new List<Product>()
             },
             new User
             {
                 Username = "basicuser",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("User@123"),
-                Role = "User"
+                Role = "User",
+                FavoriteProducts = new List<Product>()
             }
         );
 

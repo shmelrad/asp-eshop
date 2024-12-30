@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,10 +19,11 @@ public class ProductController : ControllerBase
 
     [HttpGet]
     public async Task<ActionResult<PagedResult<Product>>> GetProducts(
-        [FromQuery] int page = 1, 
-        [FromQuery] int pageSize = 9, 
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 9,
         [FromQuery] string search = "",
-        [FromQuery] string categoryId = "")
+        [FromQuery] string categoryId = "",
+        [FromQuery] bool favoritesOnly = false)
     {
         if (!string.IsNullOrEmpty(search) && search.Length < 3)
         {
@@ -29,21 +32,28 @@ public class ProductController : ControllerBase
 
         var query = _context.Products
             .Include(p => p.Category)
-            .Select(p => new Product
-            {
-                Id = p.Id,
-                Name = p.Name,
-                Description = p.Description,
-                Price = p.Price,
-                ImageUrl = p.ImageUrl,
-                CategoryId = p.CategoryId,
-                Category = new Category 
-                { 
-                    Id = p.Category.Id, 
-                    Name = p.Category.Name 
-                }
-            })
             .AsQueryable();
+
+        if (favoritesOnly)
+        {
+            var userId = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            var userIdInt = int.Parse(userId);
+            var user = await _context.Users
+                .Include(u => u.FavoriteProducts)
+                .FirstOrDefaultAsync(u => u.Id == userIdInt);
+
+            if (user == null)
+            {
+                return NotFound("User not found");
+            }
+
+            query = query.Where(p => user.FavoriteProducts.Any(fp => fp.Id == p.Id));
+        }
 
         if (!string.IsNullOrEmpty(search))
         {
@@ -59,6 +69,20 @@ public class ProductController : ControllerBase
         var items = await query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
+            .Select(p => new Product
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                Price = p.Price,
+                ImageUrl = p.ImageUrl,
+                CategoryId = p.CategoryId,
+                Category = new Category
+                {
+                    Id = p.Category.Id,
+                    Name = p.Category.Name
+                }
+            })
             .ToListAsync();
 
         return new PagedResult<Product>
@@ -84,10 +108,10 @@ public class ProductController : ControllerBase
                 Price = p.Price,
                 ImageUrl = p.ImageUrl,
                 CategoryId = p.CategoryId,
-                Category = new Category 
-                { 
-                    Id = p.Category.Id, 
-                    Name = p.Category.Name 
+                Category = new Category
+                {
+                    Id = p.Category.Id,
+                    Name = p.Category.Name
                 }
             })
             .FirstOrDefaultAsync(p => p.Id == id);
@@ -136,10 +160,10 @@ public class ProductController : ControllerBase
             Price = newProduct.Price,
             ImageUrl = newProduct.ImageUrl,
             CategoryId = newProduct.CategoryId,
-            Category = new Category 
-            { 
-                Id = category.Id, 
-                Name = category.Name 
+            Category = new Category
+            {
+                Id = category.Id,
+                Name = category.Name
             }
         };
 
@@ -205,6 +229,63 @@ public class ProductController : ControllerBase
         return NoContent();
     }
 
+    [Authorize]
+    [HttpPost("{id}/favorite")]
+    public async Task<IActionResult> ToggleFavorite(int id)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+        {
+            return Unauthorized("Invalid user identification");
+        }
+
+        var user = await _context.Users
+            .Include(u => u.FavoriteProducts)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user == null)
+        {
+            return NotFound("User not found");
+        }
+
+        var product = await _context.Products.FindAsync(id);
+        if (product == null)
+        {
+            return NotFound("Product not found");
+        }
+
+        var isFavorite = user.FavoriteProducts.Any(p => p.Id == id);
+        if (isFavorite)
+            user.FavoriteProducts.Remove(product);
+        else
+            user.FavoriteProducts.Add(product);
+
+        await _context.SaveChangesAsync();
+        return Ok(new { isFavorite = !isFavorite });
+    }
+
+    [Authorize]
+    [HttpGet("favorites/ids")]
+    public async Task<ActionResult<IEnumerable<int>>> GetFavoriteIds()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+        {
+            return Unauthorized("Invalid user identification");
+        }
+
+        var user = await _context.Users
+            .Include(u => u.FavoriteProducts)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user == null)
+        {
+            return NotFound("User not found");
+        }
+
+        return Ok(user.FavoriteProducts.Select(p => p.Id));
+    }
+    
     private bool ProductExists(int id)
     {
         return _context.Products.Any(e => e.Id == id);

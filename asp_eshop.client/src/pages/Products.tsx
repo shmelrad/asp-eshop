@@ -10,6 +10,9 @@ import { Loader2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { categoryApi } from "@/api/category"
 import { Category } from "@/types/category"
+import { useAuthStore } from "@/stores/authStore"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Heart } from "lucide-react"
 
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([])
@@ -20,6 +23,9 @@ export default function Products() {
   const debouncedSearch = useDebounce(search, 300)
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [categories, setCategories] = useState<Category[]>([])
+  const [favoriteIds, setFavoriteIds] = useState<number[]>([])
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
+  const { token } = useAuthStore()
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -58,6 +64,43 @@ export default function Products() {
     setCurrentPage(1)
   }, [debouncedSearch])
 
+  useEffect(() => {
+    const fetchFavoriteIds = async () => {
+        if (!token) return
+        try {
+            const ids = await productsApi.getFavoriteIds()
+            setFavoriteIds(ids)
+        } catch (error) {
+            console.error('Failed to fetch favorite ids:', error)
+        }
+    }
+    fetchFavoriteIds()
+  }, [token])
+
+  const toggleFavorite = async (productId: number) => {
+    if (!token) {
+      toast.error("Please login to add favorites")
+      return
+    }
+
+    try {
+      const { isFavorite } = await productsApi.toggleFavorite(productId)
+      setFavoriteIds(prev => 
+        isFavorite 
+          ? [...prev, productId]
+          : prev.filter(id => id !== productId)
+      )
+      toast.success(isFavorite ? "Added to favorites" : "Removed from favorites")
+    } catch (error) {
+      toast.error("Failed to update favorite")
+      console.error(error)
+    }
+  }
+
+  const filteredProducts = showFavoritesOnly
+    ? products.filter(product => favoriteIds.includes(product.id))
+    : products
+
   return (
     <div className="container mx-auto py-10">
       <div className="flex flex-col space-y-4">
@@ -88,6 +131,13 @@ export default function Products() {
               ))}
             </SelectContent>
           </Select>
+          <label className="flex items-center gap-2">
+            <Checkbox
+              checked={showFavoritesOnly}
+              onCheckedChange={(checked) => setShowFavoritesOnly(checked as boolean)}
+            />
+            Show favorites only
+          </label>
         </div>
         {isLoading ? (
           <div className="flex justify-center items-center min-h-[200px]">
@@ -98,14 +148,26 @@ export default function Products() {
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-              {products.map((product) => (
+              {filteredProducts.map((product) => (
                 <Card key={product.id}>
                   <CardContent className="p-4">
-                    <img
-                      src={product.imageUrl}
-                      alt={product.name}
-                      className="w-full h-48 object-cover rounded-lg mb-4"
-                    />
+                    <div className="relative">
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        className="w-full h-48 object-cover rounded-lg mb-4"
+                      />
+                      <button
+                        onClick={() => toggleFavorite(product.id)}
+                        className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-md"
+                      >
+                        {favoriteIds.includes(product.id) ? (
+                          <Heart className="h-5 w-5 fill-red-500 text-red-500" />
+                        ) : (
+                          <Heart className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
                     <h2 className="text-xl font-semibold">{product.name}</h2>
                     <p className="text-gray-600 mt-2">{product.description}</p>
                     <p className="text-lg font-bold mt-2">${product.price.toFixed(2)}</p>

@@ -22,9 +22,9 @@ public class AccountController : ControllerBase
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.Name, user.Username),
-            new Claim(JwtRegisteredClaimNames.Sub, user.Username),
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new Claim(ClaimTypes.Role, user.Role)
+            new Claim(ClaimTypes.Role, user.Role),
         };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWT_KEY")!));
@@ -53,7 +53,8 @@ public class AccountController : ControllerBase
         {
             Username = model.Username,
             PasswordHash = hashedPassword,
-            Role = "User"
+            Role = "User",
+            FavoriteProducts = new List<Product>()
         };
 
         dbContext.Users.Add(user);

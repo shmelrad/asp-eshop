@@ -16,13 +16,14 @@ class ProductsApi extends BaseApi {
     super('/api/product')
   }
 
-  getAll(page = 1, pageSize = 9, search?: string, categoryId?: string) {
+  getAll(page = 1, pageSize = 9, search?: string, categoryId?: string, favoritesOnly = false) {
     return this.get<PagedResult<Product>>('', { 
       params: { 
         page: page.toString(), 
         pageSize: pageSize.toString(),
         search: search || '',
-        categoryId: categoryId || ''
+        categoryId: categoryId || '',
+        favoritesOnly: favoritesOnly.toString()
       }
     })
   }
@@ -41,6 +42,14 @@ class ProductsApi extends BaseApi {
 
   deleteProduct(id: number) {
     return this.delete<void>(`/${id}`, { auth: true })
+  }
+
+  toggleFavorite(id: number) {
+    return this.post<{ isFavorite: boolean }>(`/${id}/favorite`, {}, { auth: true })
+  }
+
+  getFavoriteIds() {
+    return this.get<number[]>('/favorites/ids', { auth: true })
   }
 }
 
