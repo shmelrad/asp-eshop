@@ -8,7 +8,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Product } from "@/types/products"
+import { Product, ProductDto } from "@/types/product"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
@@ -22,18 +22,24 @@ import {
 import { productSchema, type ProductFormSchema } from "@/types/productSchema"
 import { Wand2, Loader2 } from "lucide-react"
 import { faker } from '@faker-js/faker'
+import { Category } from "@/types/category"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface ProductDialogProps {
   mode: 'add' | 'edit'
-  onSubmit: (product: Product) => Promise<void>
+  onSubmit: (product: ProductDto) => Promise<void>
   product?: Product
   productId?: number
+  categories: Category[]
+  onCreateCategory: (name: string) => Promise<Category>
 }
 
-export default function ProductDialog({ mode, onSubmit, product, productId }: ProductDialogProps) {
+export default function ProductDialog({ mode, onSubmit, product, productId, categories, onCreateCategory }: ProductDialogProps) {
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState("")
+
   const form = useForm<ProductFormSchema>({
     resolver: zodResolver(productSchema),
     defaultValues: {
@@ -41,6 +47,7 @@ export default function ProductDialog({ mode, onSubmit, product, productId }: Pr
       description: product?.description ?? "",
       price: product?.price ?? 0,
       imageUrl: product?.imageUrl ?? "",
+      categoryId: product?.categoryId ?? undefined,
     },
   })
 
@@ -48,9 +55,9 @@ export default function ProductDialog({ mode, onSubmit, product, productId }: Pr
     try {
       setIsLoading(true)
       if (mode === "edit" && product && productId) {
-        await onSubmit({ ...data, id: productId, description: data.description ?? "" })
+        await onSubmit({ ...data, id: productId, description: data.description ?? "" } as ProductDto)
       } else {
-        await onSubmit({ ...data, id: 0, description: data.description ?? "" })
+        await onSubmit({ ...data, description: data.description ?? "" } as ProductDto)
       }
       setOpen(false)
       form.reset(mode === 'edit' ? data : undefined)
@@ -64,6 +71,19 @@ export default function ProductDialog({ mode, onSubmit, product, productId }: Pr
     form.setValue('description', faker.commerce.productDescription())
     form.setValue('price', parseFloat(faker.commerce.price()))
     form.setValue('imageUrl', faker.image.urlLoremFlickr())
+    const randomCategory = categories[Math.floor(Math.random() * categories.length)]
+    form.setValue('categoryId', randomCategory.id)
+  }
+
+  const handleCreateCategory = async () => {
+    try {
+      const newCategory = await onCreateCategory(newCategoryName)
+      setIsCreatingCategory(false)
+      setNewCategoryName("")
+      form.setValue("categoryId", newCategory.id)
+    } catch (error) {
+      console.error(error)
+    }
   }
 
   return (
@@ -151,6 +171,59 @@ export default function ProductDialog({ mode, onSubmit, product, productId }: Pr
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="categoryId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category</FormLabel>
+                  <div className="flex gap-2">
+                    <FormControl>
+                      <Select
+                        value={field.value?.toString()}
+                        onValueChange={(value) => field.onChange(parseInt(value))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.id.toString()}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsCreatingCategory(true)}
+                    >
+                      New Category
+                    </Button>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {isCreatingCategory && (
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Category name"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                />
+                <Button type="button" onClick={handleCreateCategory}>
+                  Create
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setIsCreatingCategory(false)}>
+                  Cancel
+                </Button>
+              </div>
+            )}
+
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <>

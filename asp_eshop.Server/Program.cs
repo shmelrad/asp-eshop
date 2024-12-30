@@ -99,4 +99,13 @@ void SeedDatabase(AppDbContext dbContext)
 
         dbContext.SaveChanges();
     }
+        if (!dbContext.Categories.Any())
+    {
+        dbContext.Categories.AddRange(
+            new Category { Name = "Electronics" },
+            new Category { Name = "Clothing" },
+            new Category { Name = "Books" }
+        );
+        dbContext.SaveChanges();
+    }
 }

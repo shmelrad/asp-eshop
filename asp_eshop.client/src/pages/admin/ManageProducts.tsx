@@ -2,21 +2,36 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import ProductTable from "./components/ProductTable"
 import ProductDialog from "./components/ProductDialog"
-import { Product } from "@/types/products"
+import { Product, ProductDto } from "@/types/product"
 import { productsApi } from "@/api/products"
 import { toast } from "sonner"
 import { Pagination } from "@/components/ui/pagination"
 import { Input } from "@/components/ui/input"
 import { useDebounce } from "@/hooks/useDebounce"
 import { Loader2 } from "lucide-react"
+import { Category, categoryApi } from "@/api/category"
 
 export default function ManageProducts() {
   const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [search, setSearch] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const debouncedSearch = useDebounce(search, 300)
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await categoryApi.getAll()
+        setCategories(data)
+      } catch (error) {
+        toast.error("Failed to fetch categories")
+        console.error(error)
+      }
+    }
+    fetchCategories()
+  }, [])
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -42,10 +57,11 @@ export default function ManageProducts() {
     setCurrentPage(1)
   }, [debouncedSearch])
   
-  const handleAddProduct = async (newProduct: Omit<Product, "id">) => {
+  const handleAddProduct = async (newProduct: ProductDto) => {
     try {
-      const product = await productsApi.create(newProduct)
-      setProducts([...products, product])
+      const createdProduct = await productsApi.create(newProduct)
+      console.log(createdProduct)
+      setProducts(prevProducts => [...prevProducts, createdProduct])
       toast.success("Product added successfully")
     } catch (error) {
       toast.error("Failed to add product")
@@ -53,10 +69,12 @@ export default function ManageProducts() {
     }
   }
 
-  const handleEditProduct = async (product: Product) => {
+  const handleEditProduct = async (product: ProductDto) => {
     try {
       await productsApi.update(product.id, product)
-      setProducts(products.map((p) => (p.id === product.id ? product : p)))
+      setProducts(products.map((p) => 
+        p.id === product.id ? { ...p, ...product } : p
+      ))
       toast.success("Product updated successfully")
     } catch (error) {
       toast.error("Failed to update product")
@@ -67,11 +85,23 @@ export default function ManageProducts() {
   const handleDeleteProduct = async (id: number) => {
     try {
       await productsApi.deleteProduct(id)
-      setProducts(products.filter((p) => p.id !== id))
+      setProducts(prevProducts => prevProducts.filter(p => p.id !== id))
       toast.success("Product deleted successfully")
     } catch (error) {
       toast.error("Failed to delete product")
       console.error(error)
+    }
+  }
+
+  const handleCreateCategory = async (name: string) => {
+    try {
+      const newCategory = await categoryApi.create({ name })
+      setCategories([...categories, newCategory])
+      return newCategory
+    } catch (error) {
+      toast.error("Failed to create category")
+      console.error(error)
+      throw error
     }
   }
 
@@ -82,7 +112,12 @@ export default function ManageProducts() {
           <div className="flex flex-col space-y-4">
             <div className="flex justify-between items-center">
               <h1 className="text-2xl font-bold">Manage Products</h1>
-              <ProductDialog mode="add" onSubmit={handleAddProduct} />
+              <ProductDialog 
+                mode="add" 
+                onSubmit={handleAddProduct} 
+                categories={categories}
+                onCreateCategory={handleCreateCategory}
+              />
             </div>
             <div className="relative max-w-sm">
               <Input
@@ -90,9 +125,6 @@ export default function ManageProducts() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              {isLoading && (
-                <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
-              )}
               {search.length > 0 && search.length < 3 && (
                 <p className="text-sm text-destructive mt-1">
                   Please enter at least 3 characters to search
@@ -100,7 +132,11 @@ export default function ManageProducts() {
               )}
             </div>
           </div>
-          {products.length === 0 ? (
+          {isLoading ? (
+            <div className="flex justify-center items-center min-h-[200px]">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : products.length === 0 ? (
             <p className="text-center text-muted-foreground mt-8">No products found</p>
           ) : (
             <>
@@ -108,6 +144,8 @@ export default function ManageProducts() {
                 products={products}
                 onEdit={handleEditProduct}
                 onDelete={handleDeleteProduct}
+                categories={categories}
+                onCreateCategory={handleCreateCategory}
               />
               {totalPages > 1 && (
                 <Pagination

@@ -16,17 +16,43 @@ public class ProductController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<PagedResult<Product>>> GetProducts([FromQuery] int page = 1, [FromQuery] int pageSize = 9, [FromQuery] string search = "")
+    public async Task<ActionResult<PagedResult<Product>>> GetProducts(
+        [FromQuery] int page = 1, 
+        [FromQuery] int pageSize = 9, 
+        [FromQuery] string search = "",
+        [FromQuery] string categoryId = "")
     {
         if (!string.IsNullOrEmpty(search) && search.Length < 3)
         {
             return BadRequest("Search term must be at least 3 characters long");
         }
 
-        var query = _context.Products.AsQueryable();
+        var query = _context.Products
+            .Include(p => p.Category)
+            .Select(p => new Product
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                Price = p.Price,
+                ImageUrl = p.ImageUrl,
+                CategoryId = p.CategoryId,
+                Category = new Category 
+                { 
+                    Id = p.Category.Id, 
+                    Name = p.Category.Name 
+                }
+            })
+            .AsQueryable();
+
         if (!string.IsNullOrEmpty(search))
         {
             query = query.Where(p => p.Name.ToLower().Contains(search.ToLower()));
+        }
+
+        if (!string.IsNullOrEmpty(categoryId) && int.TryParse(categoryId, out int catId))
+        {
+            query = query.Where(p => p.CategoryId == catId);
         }
 
         var total = await query.CountAsync();
@@ -48,7 +74,23 @@ public class ProductController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<Product>> GetProduct(int id)
     {
-        var product = await _context.Products.FindAsync(id);
+        var product = await _context.Products
+            .Include(p => p.Category)
+            .Select(p => new Product
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                Price = p.Price,
+                ImageUrl = p.ImageUrl,
+                CategoryId = p.CategoryId,
+                Category = new Category 
+                { 
+                    Id = p.Category.Id, 
+                    Name = p.Category.Name 
+                }
+            })
+            .FirstOrDefaultAsync(p => p.Id == id);
 
         if (product == null)
         {
@@ -60,48 +102,89 @@ public class ProductController : ControllerBase
 
     [Authorize(Roles = "Admin")]
     [HttpPost]
-    public async Task<ActionResult<Product>> CreateProduct(Product product)
+    public async Task<ActionResult<Product>> CreateProduct(ProductDto product)
     {
         if (product.Price <= 0)
         {
             return BadRequest("Product price must be greater than zero.");
         }
 
-        if (string.IsNullOrEmpty(product.Description))
+        var category = await _context.Categories.FindAsync(product.CategoryId);
+        if (category == null)
         {
-            product.Description = "No description";
+            return BadRequest("Category not found");
         }
 
-        _context.Products.Add(product);
+        var newProduct = new Product
+        {
+            Name = product.Name,
+            Description = product.Description ?? "No description",
+            Price = product.Price,
+            ImageUrl = product.ImageUrl,
+            CategoryId = product.CategoryId,
+            Category = category
+        };
+
+        _context.Products.Add(newProduct);
         await _context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
+        var response = new Product
+        {
+            Id = newProduct.Id,
+            Name = newProduct.Name,
+            Description = newProduct.Description,
+            Price = newProduct.Price,
+            ImageUrl = newProduct.ImageUrl,
+            CategoryId = newProduct.CategoryId,
+            Category = new Category 
+            { 
+                Id = category.Id, 
+                Name = category.Name 
+            }
+        };
+
+        return CreatedAtAction(nameof(GetProduct), new { id = newProduct.Id }, response);
     }
 
     [Authorize(Roles = "Admin")]
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateProduct(int id, Product product)
+    public async Task<IActionResult> UpdateProduct(int id, ProductDto newProduct)
     {
-        if (id != product.Id)
+        if (newProduct.Price <= 0)
         {
-            return BadRequest();
+            return BadRequest("Product price must be greater than zero.");
         }
 
-        _context.Entry(product).State = EntityState.Modified;
-        product.CreatedAt = _context.Products.AsNoTracking().First(p => p.Id == id).CreatedAt;
+        var product = await _context.Products
+            .Include(p => p.Category)
+            .FirstOrDefaultAsync(p => p.Id == id);
 
-        try
+        if (product == null)
         {
-            await _context.SaveChangesAsync();
+            return NotFound();
         }
-        catch (DbUpdateConcurrencyException)
+
+        if (string.IsNullOrEmpty(newProduct.Description))
         {
-            if (!ProductExists(id))
+            newProduct.Description = "No description";
+        }
+
+        if (product.CategoryId != newProduct.CategoryId)
+        {
+            var category = await _context.Categories.FirstOrDefaultAsync(c => c.Id == newProduct.CategoryId);
+            if (category == null)
             {
-                return NotFound();
+                return BadRequest("Category not found");
             }
-            throw;
+            product.Category = category;
+            product.CategoryId = newProduct.CategoryId;
         }
+
+        product.Name = newProduct.Name;
+        product.Description = newProduct.Description;
+        product.Price = newProduct.Price;
+
+        await _context.SaveChangesAsync();
 
         return NoContent();
     }
@@ -127,3 +210,4 @@ public class ProductController : ControllerBase
         return _context.Products.Any(e => e.Id == id);
     }
 }
+
