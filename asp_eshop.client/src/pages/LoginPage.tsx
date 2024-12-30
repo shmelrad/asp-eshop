@@ -98,6 +98,22 @@ export default function LoginPage() {
                             </Button>
                         </form>
                     </Form>
+                    <p className="text-muted-foreground mt-4">
+                        Demo data for admin:
+                        <br />
+                        Username: admin
+                        <br />
+                        Password: Admin@123
+                    </p>
+                    <p className="text-muted-foreground mt-4">
+                        Demo data for user:
+                        <br />
+                        Username: basicuser
+                        <br />
+                        Password: User@123
+
+
+                    </p>
                 </CardContent>
             </Card>
         </div>
