@@ -16,11 +16,12 @@ class ProductsApi extends BaseApi {
     super('/api/product')
   }
 
-  getAll(page = 1, pageSize = 9) {
+  getAll(page = 1, pageSize = 9, search?: string) {
     return this.get<PagedResult<Product>>('', { 
       params: { 
         page: page.toString(), 
-        pageSize: pageSize.toString() 
+        pageSize: pageSize.toString(),
+        search: search || ''
       }
     })
   }

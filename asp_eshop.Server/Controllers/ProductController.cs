@@ -16,11 +16,20 @@ public class ProductController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<PagedResult<Product>>> GetProducts([FromQuery] int page = 1, [FromQuery] int pageSize = 9)
+    public async Task<ActionResult<PagedResult<Product>>> GetProducts([FromQuery] int page = 1, [FromQuery] int pageSize = 9, [FromQuery] string search = "")
     {
+        if (!string.IsNullOrEmpty(search) && search.Length < 3)
+        {
+            return BadRequest("Search term must be at least 3 characters long");
+        }
+
         var query = _context.Products.AsQueryable();
+        if (!string.IsNullOrEmpty(search))
+        {
+            query = query.Where(p => p.Name.ToLower().Contains(search.ToLower()));
+        }
+
         var total = await query.CountAsync();
-        
         var items = await query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -56,6 +65,11 @@ public class ProductController : ControllerBase
         if (product.Price <= 0)
         {
             return BadRequest("Product price must be greater than zero.");
+        }
+
+        if (string.IsNullOrEmpty(product.Description))
+        {
+            product.Description = "No description";
         }
 
         _context.Products.Add(product);
